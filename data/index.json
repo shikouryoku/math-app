@@ -1,0 +1,26 @@
+{
+  "levels": [
+    { "id": "g10", "name": "10級" },
+    { "id": "g9",  "name": "9級" },
+    { "id": "g8",  "name": "8級" },
+    { "id": "g7",  "name": "7級" },
+    { "id": "g6",  "name": "6級" },
+    { "id": "g5",  "name": "5級" },
+    { "id": "g4",  "name": "4級" },
+    { "id": "g3",  "name": "3級" }
+  ],
+  "topics": [
+    { "id": "number", "name": "数と量" },
+    { "id": "space", "name": "空間と形" },
+    { "id": "relation", "name": "変化と関係" },
+    { "id": "data", "name": "データと不確実性" },
+    { "id": "logic", "name": "論理" }
+  ],
+  "majorFiles": [
+    "data/g7/2025/3/m2.json",
+    "data/g7/2025/3/m3.json",
+    "data/g7/2025/3/m4.json",
+    "data/g7/2025/3/m5.json",
+    "data/g7/2025/3/m6.json"
+  ]
+}
