@@ -284,14 +284,10 @@ introEl.textContent = introText;
   // Prompt
   $("#qPrompt").textContent = p.prompt ?? "";
 
-// Image
-const hasImage = !!p.image;
-
-// hotspot の場合は上部画像を表示しない
-const showTopImage = hasImage && p.type !== "hotspot";
-
-$("#qImageWrap").classList.toggle("hidden", !showTopImage);
-if (showTopImage) $("#qImage").src = p.image;
+  // Image
+  const hasImage = !!p.image;
+  $("#qImageWrap").classList.toggle("hidden", !hasImage);
+  if (hasImage) $("#qImage").src = p.image;
 
   // Answer UI
   const area = $("#answerArea");
@@ -327,239 +323,151 @@ shownChoices.forEach((c) => {
     input.placeholder = "答えを入力（例：ひろしさん）";
     input.autocomplete = "off";
     area.appendChild(input);
-  } else if (p.type === "rank") {
-    const labels = p.rankLabels || ["1位","2位","3位","4位","5位"];
-
-    const wrap = document.createElement("div");
-    wrap.className = "rank-wrap";
-
-    labels.forEach((lab, i) => {
-      const row = document.createElement("div");
-      row.className = "rank-row";
-      row.innerHTML = `
-        <label class="rank-label">${lab}</label>
-        <input type="text" class="rank-input" id="rank_${p.id}_${i}" autocomplete="off" placeholder="名前">
-      `;
-      wrap.appendChild(row);
-    });
-
-    area.appendChild(wrap);
   } else if (p.type === "hotspot") {
-    // Supports:
-    //  - dual (▲ + 矢印): p.answer has triFace/triDir + arrowFace/arrowDir
-    //  - single: set p.hotspotTarget = "tri" or "arrow" and p.answer has only that pair
-    const target = p.hotspotTarget || "dual"; // "tri" | "arrow" | "dual"
-    const isDual = target === "dual";
+  hotspotState = { triFace: null, triDir: null, arrowFace: null, arrowDir: null };
+  let active = "tri"; // "tri" or "arrow"
 
-    // state (current question only)
-    hotspotState = {
-      triFace: null, triDir: null,
-      arrowFace: null, arrowDir: null
-    };
-
-    let active = (target === "arrow") ? "arrow" : "tri"; // which symbol the UI is currently editing
-
-    // UI
-    area.innerHTML = `
-      <div class="hs-panel">
-        <div class="hs-row">
-          <span class="hs-label">いま選択中：</span>
-          <button type="button" class="hs-toggle ${active === "tri" ? "is-active" : ""}" data-active="tri">▲</button>
-          <button type="button" class="hs-toggle ${active === "arrow" ? "is-active" : ""}" data-active="arrow">矢印</button>
-          <button type="button" class="hs-reset" data-action="resetAll">全消去</button>
-        </div>
-        <div class="hs-status" id="hsStatus"></div>
+  // UI（画像＋SVGホットスポット＋操作パネル）
+  area.innerHTML = `
+    <div class="hs-panel">
+      <div class="hs-row">
+        <span class="hs-label">いま選択中：</span>
+        <button type="button" class="hs-toggle is-active" data-active="tri">▲</button>
+        <button type="button" class="hs-toggle" data-active="arrow">矢印</button>
+        <button type="button" class="hs-reset" data-action="resetAll">全消去</button>
       </div>
 
-      <div class="hs-wrap">
-        <img class="hs-img" src="${p.image}" alt="展開図">
-        <svg class="hs-svg" viewBox="${p.viewBox || "0 0 2048 1285"}" preserveAspectRatio="none"></svg>
-      </div>
+      <div class="hs-status" id="hsStatus">▲の面→向き、矢印の面→向きを選んでください（順番は自由）</div>
+    </div>
 
-      <div class="hs-panel">
-        <div class="hs-row">
-          <span class="hs-label">向き：</span>
-          <button type="button" class="hs-dir" data-dir="up">上</button>
-          <button type="button" class="hs-dir" data-dir="right">右</button>
-          <button type="button" class="hs-dir" data-dir="down">下</button>
-          <button type="button" class="hs-dir" data-dir="left">左</button>
-          <button type="button" class="hs-reset" data-action="resetActive">選択中だけ消去</button>
-        </div>
-      </div>
-    `;
+    <div class="hs-wrap">
+      <img class="hs-img" src="${p.image}" alt="展開図">
+      <svg class="hs-svg" viewBox="${p.viewBox || "0 0 2048 1285"}" preserveAspectRatio="none"></svg>
+    </div>
 
-    // If single-target question, hide toggles and lock active
-    if (!isDual) {
-      const other = active === "tri" ? "arrow" : "tri";
-      area.querySelectorAll(`.hs-toggle[data-active="${other}"]`).forEach(b => b.classList.add("hidden"));
-      // Also hide the label "いま選択中" to reduce clutter
-      const lbl = area.querySelector(".hs-label");
-      if (lbl) lbl.textContent = "入力：";
+    <div class="hs-panel">
+      <div class="hs-row">
+        <span class="hs-label">向き：</span>
+        <button type="button" class="hs-dir" data-dir="up">上</button>
+        <button type="button" class="hs-dir" data-dir="right">右</button>
+        <button type="button" class="hs-dir" data-dir="down">下</button>
+        <button type="button" class="hs-dir" data-dir="left">左</button>
+      </div>
+      <div class="hs-row">
+        <button type="button" class="hs-reset" data-action="resetActive">いま選択中（▲/矢印）だけ消去</button>
+      </div>
+    </div>
+  `;
+
+  const svg = area.querySelector(".hs-svg");
+  const statusEl = area.querySelector("#hsStatus");
+
+  // 面（rect）を描画
+  (p.faces || []).forEach(f => {
+    const r = document.createElementNS("http://www.w3.org/2000/svg", "rect");
+    r.setAttribute("data-face", String(f.id));
+    r.setAttribute("x", String(f.x));
+    r.setAttribute("y", String(f.y));
+    r.setAttribute("width", String(f.w));
+    r.setAttribute("height", String(f.h));
+    r.setAttribute("rx", "6");
+    svg.appendChild(r);
+
+    if (f.label) {
+      const t = document.createElementNS("http://www.w3.org/2000/svg", "text");
+      t.setAttribute("x", String(f.x + 14));
+      t.setAttribute("y", String(f.y + 28));
+      t.setAttribute("class", "hs-label-on");
+      t.textContent = f.label;
+      svg.appendChild(t);
     }
+  });
 
-    const svg = area.querySelector(".hs-svg");
-    const statusEl = area.querySelector("#hsStatus");
+  const faceEls = [...svg.querySelectorAll("[data-face]")];
 
-    // face map for overlay placement
-    const faceMap = new Map();
-    (p.faces || []).forEach(f => faceMap.set(Number(f.id), f));
-
-    // Draw face rects + labels
-    (p.faces || []).forEach(f => {
-      const r = document.createElementNS("http://www.w3.org/2000/svg", "rect");
-      r.setAttribute("data-face", String(f.id));
-      r.setAttribute("x", String(f.x));
-      r.setAttribute("y", String(f.y));
-      r.setAttribute("width", String(f.w));
-      r.setAttribute("height", String(f.h));
-      r.setAttribute("rx", "6");
-      svg.appendChild(r);
-
-      if (f.label) {
-        const t = document.createElementNS("http://www.w3.org/2000/svg", "text");
-        t.setAttribute("x", String(f.x + 14));
-        t.setAttribute("y", String(f.y + 28));
-        t.setAttribute("class", "hs-label-on");
-        t.textContent = f.label;
-        svg.appendChild(t);
-      }
+  function updateToggleUI() {
+    area.querySelectorAll(".hs-toggle").forEach(b => {
+      b.classList.toggle("is-active", b.dataset.active === active);
     });
-
-    // Overlay symbols (triangle + arrow) — drawn on top of selected faces
-    const gTri = document.createElementNS("http://www.w3.org/2000/svg", "g");
-    gTri.setAttribute("class", "hs-ov hs-ov-tri");
-    const triPoly = document.createElementNS("http://www.w3.org/2000/svg", "polygon");
-    triPoly.setAttribute("points", "0,-1 0.866,0.5 -0.866,0.5"); // unit triangle (up)
-    gTri.appendChild(triPoly);
-
-    const gArr = document.createElementNS("http://www.w3.org/2000/svg", "g");
-    gArr.setAttribute("class", "hs-ov hs-ov-arrow");
-    const arrPoly = document.createElementNS("http://www.w3.org/2000/svg", "polygon");
-    // unit arrow (up): head at top, tail down
-    arrPoly.setAttribute("points", "0,-1 0.55,-0.15 0.2,-0.15 0.2,1 -0.2,1 -0.2,-0.15 -0.55,-0.15");
-    gArr.appendChild(arrPoly);
-
-    svg.appendChild(gTri);
-    svg.appendChild(gArr);
-
-    function dirToAngle(d) {
-      if (d === "right") return 90;
-      if (d === "down") return 180;
-      if (d === "left") return 270;
-      return 0; // up / default
-    }
-
-    function placeOverlay(kind, faceId, dir) {
-      const g = (kind === "tri") ? gTri : gArr;
-      if (faceId == null) {
-        g.setAttribute("visibility", "hidden");
-        return;
-      }
-      const f = faceMap.get(Number(faceId));
-      if (!f) {
-        g.setAttribute("visibility", "hidden");
-        return;
-      }
-      const cx = Number(f.x) + Number(f.w) / 2;
-      const cy = Number(f.y) + Number(f.h) / 2;
-      const scale = Math.min(Number(f.w), Number(f.h)) * 0.32; // visual size
-      const ang = dirToAngle(dir);
-      g.setAttribute("visibility", "visible");
-      g.setAttribute("transform", `translate(${cx} ${cy}) rotate(${ang}) scale(${scale})`);
-    }
-
-    const faceEls = [...svg.querySelectorAll("[data-face]")];
-
-    function updateToggleUI() {
-      if (!isDual) return;
-      area.querySelectorAll(".hs-toggle").forEach(b => {
-        b.classList.toggle("is-active", b.dataset.active === active);
-      });
-    }
-
-    function updateHighlight() {
-      // Face highlight
-      faceEls.forEach(el => el.classList.remove("hs-tri", "hs-arrow"));
-      if (hotspotState.triFace != null) svg.querySelector(`[data-face="${hotspotState.triFace}"]`)?.classList.add("hs-tri");
-      if (hotspotState.arrowFace != null) svg.querySelector(`[data-face="${hotspotState.arrowFace}"]`)?.classList.add("hs-arrow");
-
-      // Direction button highlight (active target only)
-      const curDir = (active === "tri") ? hotspotState.triDir : hotspotState.arrowDir;
-      area.querySelectorAll(".hs-dir").forEach(b => {
-        b.classList.toggle("is-selected", b.dataset.dir === curDir);
-      });
-
-      // Overlay drawing
-      placeOverlay("tri", hotspotState.triFace, hotspotState.triDir);
-      placeOverlay("arrow", hotspotState.arrowFace, hotspotState.arrowDir);
-
-      // Status text
-      if (isDual) {
-        const triOk = hotspotState.triFace != null && hotspotState.triDir != null;
-        const arrOk = hotspotState.arrowFace != null && hotspotState.arrowDir != null;
-        statusEl.textContent =
-          `▲：面=${hotspotState.triFace ?? "未"} / 向き=${hotspotState.triDir ?? "未"}　` +
-          `矢印：面=${hotspotState.arrowFace ?? "未"} / 向き=${hotspotState.arrowDir ?? "未"}　` +
-          `（${(triOk && arrOk) ? "採点できます" : "まだ未入力があります"}）`;
-      } else if (active === "tri") {
-        const ok = hotspotState.triFace != null && hotspotState.triDir != null;
-        statusEl.textContent =
-          `▲：面=${hotspotState.triFace ?? "未"} / 向き=${hotspotState.triDir ?? "未"}（${ok ? "採点できます" : "まだ未入力があります"}）`;
-      } else {
-        const ok = hotspotState.arrowFace != null && hotspotState.arrowDir != null;
-        statusEl.textContent =
-          `矢印：面=${hotspotState.arrowFace ?? "未"} / 向き=${hotspotState.arrowDir ?? "未"}（${ok ? "採点できます" : "まだ未入力があります"}）`;
-      }
-    }
-
-    // Click delegation (buttons)
-    area.onclick = (e) => {
-      const t = e.target;
-
-      // toggle active (dual only)
-      if (t?.matches?.(".hs-toggle") && isDual) {
-        active = t.dataset.active;
-        updateToggleUI();
-        updateHighlight();
-        return;
-      }
-
-      // direction
-      if (t?.matches?.(".hs-dir")) {
-        const dir = t.dataset.dir;
-        if (active === "tri") hotspotState.triDir = dir;
-        else hotspotState.arrowDir = dir;
-        updateHighlight();
-        return;
-      }
-
-      // reset
-      if (t?.matches?.(".hs-reset")) {
-        const act = t.dataset.action;
-        if (act === "resetAll") {
-          hotspotState = { triFace: null, triDir: null, arrowFace: null, arrowDir: null };
-        } else if (act === "resetActive") {
-          if (active === "tri") { hotspotState.triFace = null; hotspotState.triDir = null; }
-          else { hotspotState.arrowFace = null; hotspotState.arrowDir = null; }
-        }
-        updateHighlight();
-        return;
-      }
-    };
-
-    // Face selection
-    faceEls.forEach(el => {
-      el.addEventListener("pointerdown", () => {
-        const face = Number(el.getAttribute("data-face"));
-        if (active === "tri") hotspotState.triFace = face;
-        else hotspotState.arrowFace = face;
-        updateHighlight();
-      });
-    });
-
-    updateToggleUI();
-    updateHighlight();
   }
+
+  function updateHighlight() {
+    // 面のハイライト
+    faceEls.forEach(el => el.classList.remove("hs-tri", "hs-arrow"));
+    if (hotspotState.triFace != null) {
+      const el = svg.querySelector(`[data-face="${hotspotState.triFace}"]`);
+      if (el) el.classList.add("hs-tri");
+    }
+    if (hotspotState.arrowFace != null) {
+      const el = svg.querySelector(`[data-face="${hotspotState.arrowFace}"]`);
+      if (el) el.classList.add("hs-arrow");
+    }
+
+    // 向きボタンのハイライト（いま選択中の対象のみ）
+    const curDir = (active === "tri") ? hotspotState.triDir : hotspotState.arrowDir;
+    area.querySelectorAll(".hs-dir").forEach(b => {
+      b.classList.toggle("is-selected", b.dataset.dir === curDir);
+    });
+
+    // ステータス表示
+    const triOk = hotspotState.triFace != null && hotspotState.triDir != null;
+    const arrOk = hotspotState.arrowFace != null && hotspotState.arrowDir != null;
+    statusEl.textContent =
+      `▲：面=${hotspotState.triFace ?? "未"} / 向き=${hotspotState.triDir ?? "未"}　` +
+      `矢印：面=${hotspotState.arrowFace ?? "未"} / 向き=${hotspotState.arrowDir ?? "未"}　` +
+      `（${(triOk && arrOk) ? "採点できます" : "まだ未入力があります"}）`;
+  }
+
+  // ★イベント委譲：クリックを全部ここで拾う（これで「ボタンが動かない」を潰す）
+  area.onclick = (e) => {
+    const t = e.target;
+
+    // ▲/矢印 切替
+    if (t?.matches?.(".hs-toggle")) {
+      active = t.dataset.active;
+      updateToggleUI();
+      updateHighlight();
+      return;
+    }
+
+    // 向き選択
+    if (t?.matches?.(".hs-dir")) {
+      const dir = t.dataset.dir;
+      if (active === "tri") hotspotState.triDir = dir;
+      else hotspotState.arrowDir = dir;
+      updateHighlight();
+      return;
+    }
+
+    // リセット
+    if (t?.matches?.(".hs-reset")) {
+      const act = t.dataset.action;
+      if (act === "resetAll") {
+        hotspotState = { triFace: null, triDir: null, arrowFace: null, arrowDir: null };
+      } else if (act === "resetActive") {
+        if (active === "tri") { hotspotState.triFace = null; hotspotState.triDir = null; }
+        else { hotspotState.arrowFace = null; hotspotState.arrowDir = null; }
+      }
+      updateHighlight();
+      return;
+    }
+  };
+
+  // SVG（面）クリック
+  faceEls.forEach(el => {
+    el.addEventListener("pointerdown", () => {
+      const face = Number(el.getAttribute("data-face"));
+      if (active === "tri") hotspotState.triFace = face;
+      else hotspotState.arrowFace = face;
+      updateHighlight();
+    });
+  });
+
+  // 初期表示
+  updateToggleUI();
+  updateHighlight();
+}
+
 
   // Reset judge area + buttons
   $("#judgeArea").classList.add("hidden");
@@ -569,41 +477,20 @@ shownChoices.forEach((c) => {
 }
 
 function getUserAnswer(p) {
-  if (p.type === "hotspot") {
-    if (!hotspotState) return "";
-    if (p.hotspotTarget === "tri") {
-      const { triFace, triDir } = hotspotState;
-      if (!triFace || !triDir) return "";
-      return JSON.stringify({ triFace, triDir });
-    }
-    if (p.hotspotTarget === "arrow") {
-      const { arrowFace, arrowDir } = hotspotState;
-      if (!arrowFace || !arrowDir) return "";
-      return JSON.stringify({ arrowFace, arrowDir });
-    }
-    const { triFace, triDir, arrowFace, arrowDir } = hotspotState;
-    if (!triFace || !triDir || !arrowFace || !arrowDir) return "";
-    return JSON.stringify({ triFace, triDir, arrowFace, arrowDir });
-  }
-
-  if (p.type === "rank") {
-    const labels = p.rankLabels || ["1位", "2位", "3位", "4位", "5位"];
-    const vals = labels.map((_, i) => {
-      const el = document.querySelector(`#rank_${p.id}_${i}`);
-      return el ? el.value : "";
-    });
-    if (vals.some(v => !String(v).trim())) return "";
-    return JSON.stringify(vals);
-  }
-
+   if (p.type === "hotspot") {
+  if (!hotspotState) return "";
+  const { triFace, triDir, arrowFace, arrowDir } = hotspotState;
+  if (!triFace || !triDir || !arrowFace || !arrowDir) return "";
+  return JSON.stringify({ triFace, triDir, arrowFace, arrowDir });
+}
   if (p.type === "choice") {
     const checked = document.querySelector(`input[name="choice_${p.id}"]:checked`);
     return checked ? checked.value : "";
   }
-
   const input = $("#answerInput");
   return input ? input.value : "";
 }
+
 /* =========================
   Grading
 ========================= */
@@ -625,24 +512,6 @@ function gradeText(p, user) {
   // keep it conservative to avoid false positives
 
   return { ok, correct: answers[0] };
-}
-function gradeRank(p, user) {
-  let u;
-  try { u = JSON.parse(String(user)); } catch { u = []; }
-
-  const a = Array.isArray(p.answer) ? p.answer : [];
-  if (!Array.isArray(u) || u.length !== a.length) {
-    return { ok: false, correct: formatRankCorrect(p) };
-  }
-
-  const ok = a.every((ans, i) => normalizeText(u[i]) === normalizeText(ans));
-  return { ok, correct: formatRankCorrect(p) };
-}
-
-function formatRankCorrect(p) {
-  const labels = p.rankLabels || ["1位","2位","3位","4位","5位"];
-  const a = Array.isArray(p.answer) ? p.answer : [];
-  return labels.map((lab, i) => `${lab}:${a[i] ?? ""}`).join(" / ");
 }
 
 function gradeNumber(p, user) {
@@ -682,20 +551,15 @@ function gradeHotspot(p, user) {
   catch { return { ok: false, correct: "" }; }
 
   const a = p.answer || {};
-
   const ok =
-    (p.hotspotTarget === "tri"
-      ? Number(u.triFace) === Number(a.triFace) &&
-        String(u.triDir) === String(a.triDir)
-      : Number(u.arrowFace) === Number(a.arrowFace) &&
-        String(u.arrowDir) === String(a.arrowDir)
-    );
+    Number(u.triFace) === Number(a.triFace) &&
+    String(u.triDir) === String(a.triDir) &&
+    Number(u.arrowFace) === Number(a.arrowFace) &&
+    String(u.arrowDir) === String(a.arrowDir);
 
-  // ★ ここが重要
-  return {
-    ok,
-    correct: formatAnswer(p, JSON.stringify(a))
-  };
+  const correctText =
+    `▲=面${a.triFace}(${a.triDir}) / 矢印=面${a.arrowFace}(${a.arrowDir})`;
+  return { ok, correct: correctText };
 }
 
 
@@ -704,7 +568,6 @@ function grade(p, user) {
   if (p.type === "text") return gradeText(p, user);
   if (p.type === "number") return gradeNumber(p, user);
   if (p.type === "hotspot") return gradeHotspot(p, user);
-  if (p.type === "rank") return gradeRank(p, user);
   return { ok: false, correct: "" };
 }
 
@@ -746,7 +609,7 @@ function checkAnswer() {
   judge.classList.remove("hidden");
   judge.innerHTML = `
     <div class="${ok ? "judge-ok" : "judge-ng"}">${ok ? "正解！" : "不正解"}</div>
-    <div>あなたの答え：<b>${escapeHtml(formatAnswer(p, user))}</b></div>
+    <div>あなたの答え：<b>${escapeHtml(String(user))}</b></div>
     <div>正しい答え：<b>${escapeHtml(String(correct))}</b></div>
     ${p.note ? `<div class="hint">メモ：${escapeHtml(p.note)}</div>` : ""}
   `;
@@ -790,20 +653,10 @@ function finishQuiz() {
   $("#reviewBtn").classList.toggle("hidden", quiz.wrong.length === 0);
 
   // Details
-  // Details
   const lines = quiz.details.map(d => {
     const p = quiz.list.find(x => x.id === d.id);
     const title = p ? p.prompt : d.id;
-
-    const userText = (p && p.type === "hotspot")
-      ? formatAnswer(p, String(d.user))
-      : String(d.user);
-
-    const correctText = (p && p.type === "hotspot")
-      ? formatAnswer(p, JSON.stringify(p.answer || {}))
-      : String(d.correct);
-
-    return `・${d.ok ? "〇" : "×"} ${title}（あなた：${userText} / 正：${correctText}）`;
+    return `・${d.ok ? "〇" : "×"} ${title}（あなた：${d.user} / 正：${d.correct}）`;
   });
 
   $("#resultDetails").textContent = lines.join("\n");
@@ -816,48 +669,6 @@ function escapeHtml(s) {
     .replaceAll(">", "&gt;")
     .replaceAll('"', "&quot;")
     .replaceAll("'", "&#039;");
-}
-
-function formatAnswer(p, user) {
-  if (p.type === "rank") {
-    let u;
-    try { u = JSON.parse(String(user)); } catch { u = []; }
-    const labels = p.rankLabels || ["1位","2位","3位","4位","5位"];
-    return labels.map((lab,i)=>`${lab}:${u[i] ?? ""}`).join(" / ");
-  }
-  if (p.type !== "hotspot") return String(user);
-
-  let u;
-  try { u = JSON.parse(user); }
-  catch { return String(user); }
-
-  const dirText = {
-    up: "上向き",
-    right: "右向き",
-    down: "下向き",
-    left: "左向き"
-  };
-
-  if (p.hotspotTarget === "tri") {
-    return `${dirText[u.triDir]}の△（面${u.triFace}）`;
-  }
-
-  if (p.hotspotTarget === "arrow") {
-    return `${dirText[u.arrowDir]}の${arrowSymbol(u.arrowDir)}（面${u.arrowFace}）`;
-  }
-
-  // 両方型（念のため）
-  return `△：面${u.triFace}(${dirText[u.triDir]}) / 矢印：面${u.arrowFace}(${dirText[u.arrowDir]})`;
-}
-
-function arrowSymbol(dir) {
-  const map = {
-    up: "⬆",
-    right: "➡",
-    down: "⬇",
-    left: "⬅"
-  };
-  return map[dir] || "➡";
 }
 
 /* =========================

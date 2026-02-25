@@ -1,3 +1,5 @@
+const DEV = true; // ← 開発中は true。本番は false に戻す
+
 const CACHE_NAME = "math-app-cache-v1";
 const ASSETS = [
   "./",
@@ -6,7 +8,6 @@ const ASSETS = [
   "./app.js",
   "./problems.json",
   "./manifest.json"
-  // 画像は必要に応じて追加（または下の fetch ハンドリングでキャッシュされます）
 ];
 
 self.addEventListener("install", (event) => {
@@ -27,11 +28,18 @@ self.addEventListener("activate", (event) => {
 
 self.addEventListener("fetch", (event) => {
   const req = event.request;
+
+  // 🔥 開発中だけ data フォルダは常にネットワーク優先
+  if (DEV && req.url.includes("/data/")) {
+    event.respondWith(fetch(req));
+    return;
+  }
+
   event.respondWith(
     caches.match(req).then((cached) => {
       if (cached) return cached;
+
       return fetch(req).then((res) => {
-        // 取得できたものはキャッシュ（画像もここで効く）
         const copy = res.clone();
         caches.open(CACHE_NAME).then(cache => cache.put(req, copy));
         return res;
