@@ -145,6 +145,7 @@ async function init() {
   });
 
   $("#reviewBtn").addEventListener("click", startReview);
+  $("#precacheBtn")?.addEventListener("click", precacheAll);
 
   // PWA register
   registerSW();
@@ -924,6 +925,5 @@ async function precacheAll() {
   setStatus("オフライン準備完了（機内モードでも動作します）");
 }
 
-document.querySelector("#precacheBtn")?.addEventListener("click", precacheAll);
 
 init();

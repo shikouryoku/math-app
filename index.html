@@ -6,6 +6,7 @@
   <title>算数・数学トレーニング</title>
   <link rel="manifest" href="./manifest.json" />
   <link rel="stylesheet" href="./style.css" />
+  <link rel="icon" href="favicon.png" type="image/png">
   <meta name="theme-color" content="#0b57d0" />
 </head>
 <body>
@@ -43,6 +44,9 @@
         <button id="startBtn" class="btn primary">開始</button>
         <button id="resetHistoryBtn" class="btn">履歴リセット</button>
       </div>
+      
+      <button id="precacheBtn" type="button">オフライン準備（ダウンロード）</button>
+      <div id="precacheStatus" style="margin-top:8px;font-size:14px;"></div>
 
       <div id="historyBox" class="hint"></div>
     </section>
