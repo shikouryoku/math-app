@@ -1,13 +1,21 @@
 {
-  "name": "算数・数学トレーニング",
-  "short_name": "算数数学",
-  "start_url": "./index.html",
-  "scope": "./",
+  "name": "算数検定対策",
+  "short_name": "算数アプリ",
+  "start_url": "./",
   "display": "standalone",
+  "orientation": "portrait",
   "background_color": "#ffffff",
-  "theme_color": "#0b57d0",
+  "theme_color": "#4CAF50",
   "icons": [
-    { "src": "./icons/icon-192.png", "sizes": "192x192", "type": "image/png" },
-    { "src": "./icons/icon-512.png", "sizes": "512x512", "type": "image/png" }
+    {
+      "src": "icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
   ]
 }
