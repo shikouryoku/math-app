@@ -886,4 +886,44 @@ function setPwaStatus(registered) {
   }
 }
 
+async function precacheAll() {
+  const statusEl = document.querySelector("#precacheStatus");
+  const setStatus = (t) => { if (statusEl) statusEl.textContent = t; };
+
+  setStatus("オフライン準備中…");
+
+  // 1) index.json
+  const index = await fetch("./data/index.json", { cache: "no-store" }).then(r => r.json());
+
+  // 2) majorFiles（m1..m6など）を全部取得
+  const files = index.majorFiles || [];
+  let done = 0;
+
+  // 画像URLも集める
+  const imageUrls = new Set();
+
+  for (const path of files) {
+    const major = await fetch("./" + path.replace(/^\.\//, ""), { cache: "no-store" }).then(r => r.json());
+    done++;
+    setStatus(`問題データ：${done}/${files.length}`);
+
+    // 大問画像 & 小問画像
+    if (major.image) imageUrls.add(major.image);
+    (major.items || []).forEach(it => {
+      if (it.image) imageUrls.add(it.image);
+    });
+  }
+
+  // 3) 画像も全部取得（SWがキャッシュする）
+  const imgs = [...imageUrls];
+  for (let i = 0; i < imgs.length; i++) {
+    await fetch(imgs[i], { cache: "no-store" }).catch(() => {});
+    setStatus(`画像：${i+1}/${imgs.length}`);
+  }
+
+  setStatus("オフライン準備完了（機内モードでも動作します）");
+}
+
+document.querySelector("#precacheBtn")?.addEventListener("click", precacheAll);
+
 init();

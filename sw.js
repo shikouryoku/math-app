@@ -1,4 +1,4 @@
-const DEV = false; // ← 開発中は true。本番は false に戻す
+const DEV = true; // ← 開発中は true。本番は false に戻す
 
 const CACHE_NAME = "math-app-cache-v1";
 const ASSETS = [
