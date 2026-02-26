@@ -227,3 +227,48 @@ select, input[type="text"] {
 .rank-row{ display:flex; gap:10px; align-items:center; margin:6px 0; }
 .rank-label{ width:3.5em; font-weight:600; }
 .rank-input{ flex:1; }
+
+/* ===== order ===== */
+.order-panel { margin: 10px 0; }
+.order-status { font-weight: 700; margin-bottom: 8px; }
+.order-chosen { display:flex; flex-wrap:wrap; gap:8px; margin: 8px 0; }
+.order-pill {
+  display:inline-block;
+  padding: 6px 10px;
+  border: 1px solid var(--border, #ddd);
+  border-radius: 999px;
+  background: #fafafa;
+  font-size: 14px;
+}
+.order-row { display:flex; gap:10px; flex-wrap:wrap; margin: 8px 0; }
+.order-btn, .order-choice, .pair-btn, .pair-choice {
+  border: 1px solid var(--border, #ddd);
+  background: #fff;
+  padding: 10px 12px;
+  border-radius: 12px;
+  font-size: 16px;
+  cursor: pointer;
+}
+.order-choices { display:flex; flex-wrap:wrap; gap:10px; }
+
+/* ===== pair ===== */
+.pair-group { margin: 10px 0; }
+.pair-title { font-weight: 700; margin-bottom: 6px; }
+.pair-choices { display:flex; flex-wrap:wrap; gap:10px; }
+.pair-choice.is-selected { outline: 2px solid rgba(0,0,0,0.35); }
+.pair-status { font-weight: 700; margin-bottom: 8px; }
+
+/* ===== hotspotInput ===== */
+.hi-wrap { position: relative; max-width: 720px; }
+.hi-img { width: 100%; height: auto; display:block; border-radius: 12px; border: 1px solid var(--border, #ddd); background:#fafafa; }
+.hi-layer { position:absolute; inset:0; }
+.hi-input {
+  position: absolute;
+  padding: 0;
+  margin: 0;
+  border: 2px solid rgba(0,0,0,0.35);
+  border-radius: 10px;
+  text-align: center;
+  background: rgba(255,255,255,0.85);
+}
+.hi-note { margin-top: 8px; font-size: 13px; color: var(--muted, #666); }
